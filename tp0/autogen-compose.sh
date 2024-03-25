@@ -1,4 +1,6 @@
+#!/bin/bash
 
+compose="
 version: '3.9'
 name: tp0
 services:
@@ -12,29 +14,7 @@ services:
     networks:
       - testing_net
 
-  
-  client_1:
-    container_name: client_1
-    image: client:latest
-    entrypoint: /client
-    environment:
-      - CLI_ID=1
-      - CLI_LOG_LEVEL=DEBUG
-    networks:
-      - testing_net
-    depends_on:
-      - server
-  client_2:
-    container_name: client_2
-    image: client:latest
-    entrypoint: /client
-    environment:
-      - CLI_ID=2
-      - CLI_LOG_LEVEL=DEBUG
-    networks:
-      - testing_net
-    depends_on:
-      - server
+  %s
 
 networks:
   testing_net:
@@ -42,3 +22,26 @@ networks:
       driver: default
       config:
         - subnet: 172.25.125.0/24
+"
+
+cli_template="
+  client_%d:
+    container_name: client_%d
+    image: client:latest
+    entrypoint: /client
+    environment:
+      - CLI_ID=%d
+      - CLI_LOG_LEVEL=DEBUG
+    networks:
+      - testing_net
+    depends_on:
+      - server
+"
+clients=""
+
+for i in $(seq 1 $1); do
+    clients+=$(printf "$cli_template\n" $i $i $i);
+done 
+
+printf "$compose" "$clients" > $2
+

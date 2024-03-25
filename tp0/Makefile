@@ -1,6 +1,10 @@
 SHELL := /bin/bash
 PWD := $(shell pwd)
 
+ifndef CLIENTS
+CLIENTS := 1
+endif
+
 GIT_REMOTE = github.com/7574-sistemas-distribuidos/docker-compose-init
 
 default: build
@@ -25,7 +29,8 @@ docker-image:
 	# docker rmi `docker images --filter label=intermediateStageToBeDeleted=true -q`
 .PHONY: docker-image
 
-docker-compose-up: docker-image
+docker-compose-up: docker-image 
+	bash autogen-compose.sh ${CLIENTS} docker-compose-dev.yaml
 	docker compose -f docker-compose-dev.yaml up -d --build
 .PHONY: docker-compose-up
 
