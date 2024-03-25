@@ -1,5 +1,10 @@
 #!/bin/bash
 
+# Generates a docker compose for spawn `n` clients
+# @args:
+#   - $1: number of clients 
+#   - $2: output file 
+
 compose="
 version: '3.9'
 name: tp0
