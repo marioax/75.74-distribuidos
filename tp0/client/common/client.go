@@ -2,6 +2,9 @@ package common
 
 import (
 	"bufio"
+	"os"
+	"os/signal"
+	"syscall"
 	"fmt"
 	"net"
 	"time"
@@ -50,9 +53,13 @@ func (c *Client) createClientSocket() error {
 
 // StartClientLoop Send messages to the client until some time threshold is met
 func (c *Client) StartClientLoop() {
-	// autoincremental msgID to identify every message sent
-	msgID := 1
+    // capture signals
+    sig := make(chan os.Signal, 1)
+    signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM) 
 
+    // autoincremental msgID to identify every message sent
+	msgID := 1
+    
 loop:
 	// Send messages if the loopLapse threshold has not been surpassed
 	for timeout := time.After(c.config.LoopLapse); ; {
@@ -62,6 +69,11 @@ loop:
                 c.config.ID,
             )
 			break loop
+        // signal handler
+        case <-sig:
+            c.conn.Close()
+            log.Infof("received shutdown alert; closing connection | client_id: %v", c.config.ID)
+            break loop
 		default:
 		}
 
