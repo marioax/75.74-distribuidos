@@ -21,14 +21,15 @@ services:
     entrypoint: /client
     volumes:
       - ./client/config.yaml:/config.yaml
+      - ./.data/agency-1.csv:/bets.csv
     environment:
       - CLI_ID=1
       - CLI_LOG_LEVEL=DEBUG
-      - NAME=JUAN
-      - SURNAME=LOPEZ
-      - DNI=32906000
+      - NAME=PEDRO
+      - SURNAME=GARCIA
+      - DNI=19578000
       - BIRTH=1999-03-17
-      - NUM=12189
+      - NUM=8553
     networks:
       - testing_net
     depends_on:
@@ -39,68 +40,15 @@ services:
     entrypoint: /client
     volumes:
       - ./client/config.yaml:/config.yaml
+      - ./.data/agency-2.csv:/bets.csv
     environment:
       - CLI_ID=2
       - CLI_LOG_LEVEL=DEBUG
-      - NAME=SANTIAGO
-      - SURNAME=LOPEZ
-      - DNI=41300000
-      - BIRTH=1999-03-17
-      - NUM=1487
-    networks:
-      - testing_net
-    depends_on:
-      - server
-  client_3:
-    container_name: client_3
-    image: client:latest
-    entrypoint: /client
-    volumes:
-      - ./client/config.yaml:/config.yaml
-    environment:
-      - CLI_ID=3
-      - CLI_LOG_LEVEL=DEBUG
       - NAME=JUAN
-      - SURNAME=RODRIGUEZ
-      - DNI=41095000
+      - SURNAME=PEREZ
+      - DNI=26415000
       - BIRTH=1999-03-17
-      - NUM=28333
-    networks:
-      - testing_net
-    depends_on:
-      - server
-  client_4:
-    container_name: client_4
-    image: client:latest
-    entrypoint: /client
-    volumes:
-      - ./client/config.yaml:/config.yaml
-    environment:
-      - CLI_ID=4
-      - CLI_LOG_LEVEL=DEBUG
-      - NAME=JUAN
-      - SURNAME=GARCIA
-      - DNI=20627000
-      - BIRTH=1999-03-17
-      - NUM=6396
-    networks:
-      - testing_net
-    depends_on:
-      - server
-  client_5:
-    container_name: client_5
-    image: client:latest
-    entrypoint: /client
-    volumes:
-      - ./client/config.yaml:/config.yaml
-    environment:
-      - CLI_ID=5
-      - CLI_LOG_LEVEL=DEBUG
-      - NAME=ALFREDO
-      - SURNAME=MORALES
-      - DNI=34804000
-      - BIRTH=1999-03-17
-      - NUM=29289
+      - NUM=7655
     networks:
       - testing_net
     depends_on:

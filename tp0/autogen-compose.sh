@@ -38,6 +38,7 @@ cli_template="
     entrypoint: /client
     volumes:
       - ./client/config.yaml:/config.yaml
+      - ./.data/agency-%d.csv:/bets.csv
     environment:
       - CLI_ID=%d
       - CLI_LOG_LEVEL=DEBUG
@@ -74,7 +75,7 @@ clients=""
 
 for i in $(seq 1 $1); do
     bet=$(env_bet_generator) 
-    clients+=$(printf "$cli_template\n" $i $i $i "$bet");
+    clients+=$(printf "$cli_template\n" $i $i $i $i "$bet");
 done 
 
 printf "$compose" "$clients" > $2
