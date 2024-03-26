@@ -1,11 +1,9 @@
 package common
 
 import (
-	"bufio"
 	"os"
 	"os/signal"
 	"syscall"
-	"fmt"
 	"net"
 	"time"
 
@@ -58,8 +56,8 @@ func (c *Client) StartClientLoop() {
     signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM) 
 
     // autoincremental msgID to identify every message sent
-	msgID := 1
-    
+	//msgID := 1
+
 loop:
 	// Send messages if the loopLapse threshold has not been surpassed
 	for timeout := time.After(c.config.LoopLapse); ; {
@@ -80,15 +78,26 @@ loop:
 		// Create the connection the server in every loop iteration. Send an
 		c.createClientSocket()
 
-		// TODO: Modify the send to avoid short-write
-		fmt.Fprintf(
+        // send a bet
+        err := sendBet(c.conn)
+
+        if err != nil {
+   			log.Errorf("action: send_message | result: fail | client_id: %v | error: %v",
+                c.config.ID,
+				err,
+			)
+			return
+        }
+		/*
+        fmt.Fprintf(
 			c.conn,
 			"[CLIENT %v] Message N°%v\n",
 			c.config.ID,
 			msgID,
 		)
 		msg, err := bufio.NewReader(c.conn).ReadString('\n')
-		msgID++
+        */
+        _, err = recvBetACK(c.conn)
 		c.conn.Close()
 
 		if err != nil {
@@ -98,13 +107,13 @@ loop:
 			)
 			return
 		}
-		log.Infof("action: receive_message | result: success | client_id: %v | msg: %v",
-            c.config.ID,
-            msg,
+	    log.Infof("action: bet_sent | result: success | dni: %s | number: %s",
+            os.Getenv("DNI"),
+            os.Getenv("NUM"),
         )
-
-		// Wait a time between sending one message and the next one
-		time.Sleep(c.config.LoopPeriod)
+        break
+        // Wait a time between sending one message and the next one
+		//time.Sleep(c.config.LoopPeriod)
 	}
 
 	log.Infof("action: loop_finished | result: success | client_id: %v", c.config.ID)
