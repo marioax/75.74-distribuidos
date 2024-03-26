@@ -8,6 +8,8 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - LOGGING_LEVEL=DEBUG
+    volumes:
+      - server:/build
     networks:
       - testing_net
 
@@ -18,10 +20,16 @@ services:
     environment:
       - CLI_ID=1
       - CLI_LOG_LEVEL=DEBUG
+    volumes:
+      - client1:/build
     networks:
       - testing_net
     depends_on:
       - server
+
+volumes:
+ client1:
+ server: 
 
 networks:
   testing_net:
