@@ -26,10 +26,10 @@ services:
       - CLI_ID=1
       - CLI_LOG_LEVEL=DEBUG
       - NAME=PEDRO
-      - SURNAME=GARCIA
-      - DNI=19578000
+      - SURNAME=PEREZ
+      - DNI=32801000
       - BIRTH=1999-03-17
-      - NUM=8553
+      - NUM=20806
     networks:
       - testing_net
     depends_on:
@@ -44,11 +44,68 @@ services:
     environment:
       - CLI_ID=2
       - CLI_LOG_LEVEL=DEBUG
-      - NAME=JUAN
-      - SURNAME=PEREZ
-      - DNI=26415000
+      - NAME=ALFREDO
+      - SURNAME=MORALES
+      - DNI=18885000
       - BIRTH=1999-03-17
-      - NUM=7655
+      - NUM=9504
+    networks:
+      - testing_net
+    depends_on:
+      - server
+  client_3:
+    container_name: client_3
+    image: client:latest
+    entrypoint: /client
+    volumes:
+      - ./client/config.yaml:/config.yaml
+      - ./.data/agency-3.csv:/bets.csv
+    environment:
+      - CLI_ID=3
+      - CLI_LOG_LEVEL=DEBUG
+      - NAME=ALFREDO
+      - SURNAME=GARCIA
+      - DNI=33926000
+      - BIRTH=1999-03-17
+      - NUM=12075
+    networks:
+      - testing_net
+    depends_on:
+      - server
+  client_4:
+    container_name: client_4
+    image: client:latest
+    entrypoint: /client
+    volumes:
+      - ./client/config.yaml:/config.yaml
+      - ./.data/agency-4.csv:/bets.csv
+    environment:
+      - CLI_ID=4
+      - CLI_LOG_LEVEL=DEBUG
+      - NAME=JUAN
+      - SURNAME=LOPEZ
+      - DNI=18585000
+      - BIRTH=1999-03-17
+      - NUM=10747
+    networks:
+      - testing_net
+    depends_on:
+      - server
+  client_5:
+    container_name: client_5
+    image: client:latest
+    entrypoint: /client
+    volumes:
+      - ./client/config.yaml:/config.yaml
+      - ./.data/agency-5.csv:/bets.csv
+    environment:
+      - CLI_ID=5
+      - CLI_LOG_LEVEL=DEBUG
+      - NAME=PEDRO
+      - SURNAME=GARCIA
+      - DNI=21830000
+      - BIRTH=1999-03-17
+      - NUM=28847
     networks:
       - testing_net
     depends_on:

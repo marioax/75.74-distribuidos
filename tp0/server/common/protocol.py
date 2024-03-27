@@ -42,12 +42,12 @@ def parse_bets(buf):
 
 def recv_bets(client_sock) -> list[utils.Bet]:
     bets = []
-    buf = "" 
+    buf = b"" 
 
-    while not buf or buf[-1] != EOP:
-       buf += client_sock.recv(1).decode('utf-8')
+    while not buf or buf[-1] != ord(EOP):
+       buf += client_sock.recv(1)
         
-    return parse_bets(buf[:-1])
+    return parse_bets(buf[:-1].decode('utf-8'))
 
 
 def send_bets_ack(client_sock):

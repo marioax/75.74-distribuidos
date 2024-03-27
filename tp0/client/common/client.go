@@ -6,6 +6,7 @@ import (
 	"syscall"
 	"net"
 	"time"
+    "encoding/csv"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -55,20 +56,32 @@ func (c *Client) StartClientLoop() {
     sig := make(chan os.Signal, 1)
     signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM) 
 
+    bets_file, err := os.Open("bets.csv")
+
+    if err != nil {
+   	    log.Errorf("action: open_bets_file | result: fail | client_id: %v | error: %v",
+            c.config.ID,
+	        err,
+	    )
+	    return
+    }
+    bets_reader := csv.NewReader(bets_file)
     // autoincremental msgID to identify every message sent
 	//msgID := 1
 
 loop:
 	// Send messages if the loopLapse threshold has not been surpassed
-	for timeout := time.After(c.config.LoopLapse); ; {
+	for {
 		select {
-		case <-timeout:
+		/*case <-timeout:
 	        log.Infof("action: timeout_detected | result: success | client_id: %v",
                 c.config.ID,
             )
 			break loop
+        */
         // signal handler
         case <-sig:
+            bets_file.Close()
             c.conn.Close()
             log.Infof("received shutdown alert; closing connection | client_id: %v", c.config.ID)
             break loop
@@ -77,16 +90,23 @@ loop:
 
 		// Create the connection the server in every loop iteration. Send an
 		c.createClientSocket()
+        
+        // get next batch and batch size (in bets)
+        bet_number, batch := getNextBatch(bets_reader)
 
-        // send a bet
-        err := sendBet(c.conn)
+        // if there are not more batches to send
+        if bet_number <= 0 {
+            break
+        }
+        // send a batch
+        err = sendBets(c.conn, batch)
 
         if err != nil {
    			log.Errorf("action: send_message | result: fail | client_id: %v | error: %v",
                 c.config.ID,
 				err,
 			)
-			return
+		    break	
         }
 		/*
         fmt.Fprintf(
@@ -97,24 +117,27 @@ loop:
 		)
 		msg, err := bufio.NewReader(c.conn).ReadString('\n')
         */
-        _, err = recvBetACK(c.conn)
+        _, err = recvBetsACK(c.conn, sig)
 		c.conn.Close()
+        c.conn = nil 
 
 		if err != nil {
 			log.Errorf("action: receive_message | result: fail | client_id: %v | error: %v",
                 c.config.ID,
 				err,
 			)
-			return
+		    break	
 		}
-	    log.Infof("action: bet_sent | result: success | dni: %s | number: %s",
-            os.Getenv("DNI"),
-            os.Getenv("NUM"),
+	    log.Infof("action: bets_sent | result: success | number of bets sent: %d",
+            bet_number,
         )
-        break
         // Wait a time between sending one message and the next one
-		//time.Sleep(c.config.LoopPeriod)
+		time.Sleep(c.config.LoopPeriod)
 	}
+    bets_file.Close()
 
+    if c.conn != nil {
+        c.conn.Close()
+    }    
 	log.Infof("action: loop_finished | result: success | client_id: %v", c.config.ID)
 }

@@ -55,7 +55,7 @@ class Server:
             bets = protocol.recv_bets(client_sock)
             if bets:
                 utils.store_bets(bets)
-                logging.info(f"action: bet_stored | result: success | dni: {bets[0].document} | number: {bets[0].number}")
+                logging.info(f"action: bets_stored | result: success | client_id: {bets[0].agency} | number of bets: {len(bets)}")
                 protocol.send_bets_ack(client_sock)
 
             #msg = client_sock.recv(1024).rstrip().decode('utf-8')
