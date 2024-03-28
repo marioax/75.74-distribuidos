@@ -143,8 +143,9 @@ El cliente se comporta de la misma manera que en el caso del echo server: se uti
 Por ejemplo: cuando un cliente envia sus apuestas, utilizara una conexion por batch. Esto es necesario ya que al no haber concurrencia en el servidor,
 no habria fairness si un cliente utilizara una unica conexion (ademas de que habria un deadlock: mientras que ocupa la unica conexion disponible, el cliente espera a recibir los resutados,
 cosa que ocurre cuando los demas clientes envian apuestas)
+Ademas, en un caso real, seria costoso para un servidor mantener una conexion por cada cliente indefinidamente.
 
-Al no ser un servidor multithreaded, se utiliza el siguiente mecanismo para saber cuando realizar el sorteo:
+Se utiliza el siguiente mecanismo para saber cuando realizar el sorteo:
 1. Cada vez que un cliente manda un mensaje, se registra su id en un set de python.
 2. Si un cliente manda EOT (no mas apuestas) el servidor lo agrega otro set de clientes finalizados.
 3. Si un cliente solicita los ganadores, el servidor guarda su socket (y no lo cierra) y si los sets del paso 1 y 2 son iguales,
