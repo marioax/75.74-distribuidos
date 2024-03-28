@@ -116,4 +116,5 @@ class Server:
 
         for cli_id, sock in self._clients_pending.items():
             protocol.send_winners(sock, str(winners[cli_id]))
+            sock.close()
 
