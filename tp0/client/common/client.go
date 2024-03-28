@@ -66,12 +66,11 @@ func (c *Client) StartClientLoop() {
 	    return
     }
     bets_reader := csv.NewReader(bets_file)
-    // autoincremental msgID to identify every message sent
-	//msgID := 1
+
 
 loop:
-	// Send messages if the loopLapse threshold has not been surpassed
-	for {
+    // send all batches of the csv bets file 
+    for {
 		select {
 		/*case <-timeout:
 	        log.Infof("action: timeout_detected | result: success | client_id: %v",
@@ -87,57 +86,44 @@ loop:
             break loop
 		default:
 		}
-
-		// Create the connection the server in every loop iteration. Send an
-		c.createClientSocket()
-        
-        // get next batch and batch size (in bets)
-        bet_number, batch := getNextBatch(bets_reader)
-
-        // if there are not more batches to send
-        if bet_number <= 0 {
-            break
-        }
-        // send a batch
-        err = sendBets(c.conn, batch)
+        c.createClientSocket()
+        bets_sent, err := sendNextBatch(c.conn, bets_reader) 
+        c.conn.Close()
 
         if err != nil {
-   			log.Errorf("action: send_message | result: fail | client_id: %v | error: %v",
+   			log.Errorf("action: send_batch | result: fail | client_id: %v | error: %v",
                 c.config.ID,
 				err,
 			)
-		    break	
+            c.conn.Close()
+            bets_file.Close()
+		    return 
         }
-		/*
-        fmt.Fprintf(
-			c.conn,
-			"[CLIENT %v] Message N°%v\n",
-			c.config.ID,
-			msgID,
-		)
-		msg, err := bufio.NewReader(c.conn).ReadString('\n')
-        */
-        _, err = recvBetsACK(c.conn, sig)
-		c.conn.Close()
-        c.conn = nil 
+        
+        if bets_sent <= 0 {
+            break
+        }
+        //if c.config.ID == "1" {
+        //    bets_reader.ReadAll() // for demo 
 
-		if err != nil {
-			log.Errorf("action: receive_message | result: fail | client_id: %v | error: %v",
-                c.config.ID,
-				err,
-			)
-		    break	
-		}
-	    log.Infof("action: bets_sent | result: success | number of bets sent: %d",
-            bet_number,
+        //}
+	    log.Infof("action: send_batch | result: success | number of bets sent: %d",
+            bets_sent,
         )
         // Wait a time between sending one message and the next one
 		time.Sleep(c.config.LoopPeriod)
 	}
     bets_file.Close()
+    c.createClientSocket()
+	log.Infof("action: query_winners | result: in_progress | client_id: %v", c.config.ID)
+    winners, err := queryWinners(c.conn)
+    c.conn.Close()
 
-    if c.conn != nil {
-        c.conn.Close()
-    }    
-	log.Infof("action: loop_finished | result: success | client_id: %v", c.config.ID)
+    if err != nil {
+        log.Errorf("action: query_winners | result: fail | client_id: %v | error: %v",
+            c.config.ID,
+		    err,
+		)
+    }
+	log.Infof("action: query_winners | result: success | client_id: %v  | winners: %v", c.config.ID, winners)
 }

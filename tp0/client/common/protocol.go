@@ -3,15 +3,21 @@ package common
 import (
     "encoding/csv"
     "errors"
-    "bytes"
     "fmt"
     "net"
     "os"
 ) 
 
-var EOP string = "\x00"
-var EOB string = "\x01"
-var ACK string = "ACK"
+const (
+    EOP  byte = 0x00  // end of payload
+    EOB  byte = 0x01  // end of batch
+    EOI  byte = 0x02  // end of id (cause is a string)
+    EOT  byte = 0x03  // end of batch transmission
+    BAT  byte = 0x04  // batch message 
+    QWIN byte = 0x05  // winners query message
+    RWIN byte = 0x06  // winners response message
+    ACK  byte = 0xff  // acknowledge message
+)
 
 // asuming that:
 // fullname <= 50 chars
@@ -32,9 +38,9 @@ const (
 )
 
 
-func getNextBatch(bets *csv.Reader) (int, string) {
+func getNextBatch(bets *csv.Reader) (uint, string) {
     batch := ""
-    bet_number := 0
+    bet_number := uint(0)
 
     for i := 0; i < BATCH_SIZE; i++ {
         bet_record, err := bets.Read()
@@ -43,32 +49,35 @@ func getNextBatch(bets *csv.Reader) (int, string) {
         if err != nil {
             return 0, "" 
         }
+        // fields are newline separated
         batch += fmt.Sprintf(
-            "%s\n%s\n%s\n%s\n%s\n%s%s",
-            CLI_ID,
+            "%s\n%s\n%s\n%s\n%s%s",
             bet_record[NAME],
             bet_record[SURNAME],
             bet_record[DNI],
             bet_record[BIRTH],
             bet_record[NUM],
-            EOB,
+            []byte{EOB},
         )            
         bet_number += 1
     }
-    return bet_number, batch + EOP
+    return bet_number, batch + string([]byte{EOP})
 }
 
 
-func sendBets(conn net.Conn, bets string) (error) {
-    // fields are newline separated
+func sendmsg(conn net.Conn, msg_type byte, buf []byte) (error) {
     var err error = nil
-    _bets := []byte(bets)
-    //fmt.Printf("[BATCH %d] %s\n", i, bets)
-    to_send, sent := len(_bets), 0
+
+    payload := []byte(CLI_ID)
+    payload = append(payload, EOI)
+    payload = append(payload, msg_type)
+    payload = append(payload, buf...)
+    payload = append(payload, EOP)
+    to_send, sent := len(payload), 0
    
     for sent < to_send {
         n := 0
-        n, err = conn.Write(_bets[sent:])
+        n, err = conn.Write(payload[sent:])
         
         if err != nil {
             break
@@ -79,26 +88,76 @@ func sendBets(conn net.Conn, bets string) (error) {
 }
 
 
-func recvBetsACK(conn net.Conn, sig chan os.Signal) (string, error) {
-    buf := make([]byte, 1024) // should receive "ACK\0"
-    read := 0
+func recvmsg(conn net.Conn) ([]byte, error) {
+    buf := make([]byte, 1)
+    msg := []byte{}
 
     for {
-        n, err := conn.Read(buf)
+        _, err := conn.Read(buf)
         
         if err != nil { 
-            return "", err 
+            return nil, err 
         }
-        read += n
 
-        if bytes.HasSuffix(buf, []byte(EOP)) {
+        if buf[0] == EOP {
             break
         }
+        msg = append(msg, buf[0])
     }
-    str_buf := string(buf[:read - 1])
-    
-    if str_buf != ACK {
-        return "", errors.New("message received is not ACK")
-    }
-    return str_buf, nil
+    return msg, nil
 }
+
+
+func sendNextBatch(conn net.Conn, reader *csv.Reader) (uint, error) {
+    batch_size, batch := getNextBatch(reader)
+    var err error = nil
+
+    // send end of transmission if no more batches to sent
+    if batch_size > 0 {
+        err = sendmsg(conn, BAT, []byte(batch))
+    } else {
+        err = sendmsg(conn, EOT, []byte{})
+    }
+    
+    if err != nil {
+        return 0, err
+    }
+    if err = recvACK(conn); err != nil {
+        return 0, err
+    }
+    
+    return batch_size, nil
+}
+
+
+func recvACK(conn net.Conn) (error) {
+    msg, err := recvmsg(conn)
+    if (err == nil && (len(msg) == 0 || msg[0] != ACK)) {
+        err = errors.New("ACK not received")
+    }
+    return err
+}
+
+
+func queryWinners(conn net.Conn) (string, error) {
+    // query the server
+    err := sendmsg(conn, QWIN, []byte{})
+    
+    if err != nil {
+        return "", err
+    }
+    err = recvACK(conn)
+
+    // server didnt receive query
+    if err != nil {
+        return "", err
+    }
+    msg, err := recvmsg(conn)
+
+    if len(msg) == 0 || msg[0] != RWIN {
+        return "", errors.New("winners not received")
+    }
+    // TODO: send ack after recv winners
+    return string(msg[1:]), nil
+}
+

@@ -14,6 +14,11 @@ class Server:
         self._server_socket.listen(listen_backlog)
         self._client_socket = None
 
+        # for winner query logic
+        self._client_ids = set()
+        self._ended_client_ids = set() 
+        self._clients_pending = {} # clients that are waiting response
+
     def run(self):
         """
         Dummy Server loop
@@ -52,12 +57,31 @@ class Server:
         client socket will also be closed
         """
         try:
-            bets = protocol.recv_bets(client_sock)
-            if bets:
-                utils.store_bets(bets)
-                logging.info(f"action: bets_stored | result: success | client_id: {bets[0].agency} | number of bets: {len(bets)}")
-                protocol.send_bets_ack(client_sock)
+            cli_id, msg_type, payload = protocol.recv(client_sock)
+            self._client_ids.add(cli_id)
 
+            if msg_type == protocol.BAT:
+                bets = protocol.parse_bets(cli_id, payload)
+                utils.store_bets(bets)
+                logging.info(f"action: bets_stored | result: success | client_id: {cli_id} | number of bets: {len(bets)}")
+                protocol.send_ack(client_sock)
+
+            elif msg_type == protocol.EOT:
+                logging.info(f"action: eot_received | result: success | client_id: {cli_id}")
+                self._ended_client_ids.add(cli_id)
+                protocol.send_ack(client_sock)
+
+            elif msg_type == protocol.QWIN:
+                logging.info(f"action: winners_query_received | result: success | client_id: {cli_id}")
+                self._clients_pending[cli_id] = client_sock
+                protocol.send_ack(client_sock)
+
+                if self._client_ids != self._ended_client_ids:
+                    # dont close the sock; respond later
+                    return
+                self.__announce_winners()
+
+            client_sock.close()
             #msg = client_sock.recv(1024).rstrip().decode('utf-8')
             #addr = client_sock.getpeername()
             #logging.info(f'action: receive_message | result: success | ip: {addr[0]} | msg: {msg}')
@@ -66,8 +90,6 @@ class Server:
             logging.error(f"action: receive_message | result: fail | error: {e}")
         except protocol.ProtocolError as e:
             logging.error(f"action: receive_bets | result: fail | error: {e.message}")
-        finally:
-            client_sock.close()
 
     def __accept_new_connection(self):
         """
@@ -82,3 +104,16 @@ class Server:
         c, addr = self._server_socket.accept()
         logging.info(f'action: accept_connections | result: success | ip: {addr[0]}')
         return c
+
+    def __announce_winners(self):
+        winners = {i : 0 for i in self._clients_pending}
+
+        for bet in utils.load_bets():
+            if utils.has_won(bet):
+                winners[str(bet.agency)] += 1
+
+        logging.info(f"action: lottery | result: success")
+
+        for cli_id, sock in self._clients_pending.items():
+            protocol.send_winners(sock, str(winners[cli_id]))
+
