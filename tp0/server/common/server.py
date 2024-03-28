@@ -113,8 +113,11 @@ class Server:
                 winners[str(bet.agency)] += 1
 
         logging.info(f"action: lottery | result: success")
+        self._client_ids.clear()
+        self._ended_client_ids.clear()
 
         for cli_id, sock in self._clients_pending.items():
             protocol.send_winners(sock, str(winners[cli_id]))
             sock.close()
 
+        self._clients_pending.clear()
