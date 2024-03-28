@@ -1,6 +1,7 @@
 import socket
 import logging
 import signal
+import multiprocessing
 
 from . import protocol
 from . import utils
@@ -35,16 +36,17 @@ class Server:
         signal.signal(signal.SIGINT, sig_handler)
         signal.signal(signal.SIGTERM, sig_handler)
 
-        # TODO: Modify this program to handle signal to graceful shutdown
-        # the server
         try:
-            while True:
-                self._client_socket = self.__accept_new_connection()
-                self.__handle_client_connection(self._client_socket)
-                self._client_socket = None
+            with multiprocessing.Pool() as pool:
+                while True:
+                    self._client_socket = self.__accept_new_connection()
+                    pool.apply_async(self.__handle_client_connection, args=(self._client_socket)
+                    self._client_socket.close()
+                    self._client_socket = None
 
         except KeyboardInterrupt:
             logging.info("received shutdown alert; cleaning up")
+        finally:
             if self._client_socket:
                 self._client_socket.close()
             self._server_socket.close()
@@ -81,7 +83,6 @@ class Server:
                     return
                 self.__announce_winners()
 
-            client_sock.close()
             #msg = client_sock.recv(1024).rstrip().decode('utf-8')
             #addr = client_sock.getpeername()
             #logging.info(f'action: receive_message | result: success | ip: {addr[0]} | msg: {msg}')
@@ -90,7 +91,11 @@ class Server:
             logging.error(f"action: receive_message | result: fail | error: {e}")
         except protocol.ProtocolError as e:
             logging.error(f"action: receive_bets | result: fail | error: {e.message}")
-
+        except KeyboardInterrupt:
+            logging.info("received shutdown alert; cleaning up")
+        finally:
+            client_sock.close()
+ 
     def __accept_new_connection(self):
         """
         Accept new connections
@@ -113,6 +118,9 @@ class Server:
                 winners[str(bet.agency)] += 1
 
         logging.info(f"action: lottery | result: success")
+        self._client_ids.clear()
+        self._ended_client_ids.clear()
+        self._clients_pending.clear()
 
         for cli_id, sock in self._clients_pending.items():
             protocol.send_winners(sock, str(winners[cli_id]))
