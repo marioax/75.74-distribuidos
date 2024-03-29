@@ -47,7 +47,6 @@ func (c *Client) createClientSocket() error {
 			err,
 		)
 	}
-    client.conn.SetReadDeadline(time.Now().Add(time.Second)) 
 	c.conn = conn
 	return nil
 }
@@ -69,15 +68,9 @@ func (c *Client) StartClientLoop() {
 
     // send all batches of the csv bets file 
     for {
+        c.createClientSocket()
+
         select {
-        /*
-		case <-timeout:
-	        log.Infof("action: timeout_detected | result: success | client_id: %v",
-                c.config.ID,
-            )
-			break loop
-        */        
-        // signal handler
         case <-c.shutdown:
             log.Infof("action: shutdown_detected | client_id: %v", c.config.ID)
             bets_file.Close()
@@ -85,7 +78,6 @@ func (c *Client) StartClientLoop() {
             return 
 		default:
 		}
-        c.createClientSocket()
         bets_sent, err := sendNextBatch(c.conn, bets_reader) 
         c.conn.Close()
 
@@ -94,17 +86,16 @@ func (c *Client) StartClientLoop() {
                 c.config.ID,
 				err,
 			)
-            c.conn.Close()
             bets_file.Close()
 		    return 
         }
         
         if bets_sent <= 0 {
+	        log.Infof("action: all_bets_sent | result: success")
             break
         }
-        //if c.config.ID == "1" {
-        //    bets_reader.ReadAll() // for demo 
-
+        //if c.config.ID == "2" {
+        //bets_reader.ReadAll() // for demo only send one batch
         //}
 	    log.Infof("action: send_batch | result: success | number of bets sent: %d",
             bets_sent,
@@ -113,18 +104,39 @@ func (c *Client) StartClientLoop() {
 		time.Sleep(c.config.LoopPeriod)
 	}
     bets_file.Close()
-    c.createClientSocket()
-	log.Infof("action: query_winners | result: in_progress | client_id: %v", c.config.ID)
-    // here the recv must block, since it will
-    client.conn.SetReadDeadline(time.Time{}) 
-    winners, err := queryWinners(c.conn)
-    c.conn.Close()
 
+    // result ping loop
+    for {
+        c.createClientSocket(); 
+
+	    select {
+        case <-c.shutdown:
+            log.Infof("action: shutdown_detected | client_id: %v", c.config.ID)
+            c.conn.Close()
+            return 
+        default:
+        }
+	    log.Infof("action: ping_result | result: in_progress")
+        err := queryResult(c.conn)
+
+        // server did take the query 
+        if err == nil {
+            break 
+        }
+        c.conn.Close()
+		time.Sleep(c.config.LoopPeriod)
+    }
+    winners, err := recvResult(c.conn)
+    c.conn.Close()
+        
     if err != nil {
-        log.Errorf("action: query_winners | result: fail | client_id: %v | error: %v",
+        log.Errorf("action: recv_winners | result: fail | client_id: %v | error: %v",
             c.config.ID,
 		    err,
 		)
+    } else {
+	    log.Infof("action: query_winners | result: success | client_id: %v  | winners: %v", c.config.ID, winners)
     }
-	log.Infof("action: query_winners | result: success | client_id: %v  | winners: %v", c.config.ID, winners)
+	log.Infof("action: exit | result: success | client_id: %v", c.config.ID)
+    c.shutdown <- true
 }

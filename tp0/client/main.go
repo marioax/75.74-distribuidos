@@ -116,6 +116,10 @@ func main() {
     // Set up signal handling
     sig := make(chan os.Signal, 1)
     signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM) 
-    <- sig
-    shutdownCh <- true // send shutdown alert
+
+    select {
+    case <-sig:
+        shutdownCh <- true // send shutdown alert
+    case <-shutdownCh:
+    }
 }

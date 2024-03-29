@@ -139,22 +139,23 @@ func recvACK(conn net.Conn) (error) {
 }
 
 
-func queryWinners(conn net.Conn) (string, error) {
+func queryResult(conn net.Conn) (error) {
     // query the server
     err := sendmsg(conn, QWIN, []byte{})
     
     if err != nil {
-        return "", err
+        return err
     }
-    err = recvACK(conn)
+    return recvACK(conn)
+}
 
-    // server didnt receive query
+
+func recvResult(conn net.Conn) (string, error) {
+    msg, err := recvmsg(conn)
+    
     if err != nil {
         return "", err
-    }
-    msg, err := recvmsg(conn)
-
-    if len(msg) == 0 || msg[0] != RWIN {
+    } else if len(msg) == 0 || msg[0] != RWIN {
         return "", errors.New("winners not received")
     }
     // TODO: send ack after recv winners

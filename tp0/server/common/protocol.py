@@ -10,6 +10,7 @@ EOT  = '\x03' # enf of transmission
 BAT  = '\x04' # batch type message
 QWIN = '\x05' # winners query message
 RWIN = '\x06' # winners response message
+NACK  = '\xfe' # nack type message
 ACK  = '\xff' # ack type message
 
 SEP = '\n'   # field separator
@@ -61,8 +62,13 @@ def recv(client_sock) -> (str, str, str):
             break
     return parse_msg(buf.decode('utf-8'))
 
+
 def send_ack(client_sock):
     return client_sock.sendall((ACK + EOP).encode('latin-1'))
+
+
+def send_nack(client_sock):
+    return client_sock.sendall((NACK + EOP).encode('latin-1'))
 
 
 def send_winners(client_sock, winners: str):

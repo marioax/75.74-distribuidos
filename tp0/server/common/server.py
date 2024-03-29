@@ -47,14 +47,9 @@ class Server:
 
         bets_lock = manager.Lock() 
         
-        ann_args = (clients_pending, bets_lock, send_result_event) 
-        announcer = mp.Process(target=self.__announce_winners_handler, args=ann_args)
-
         client_procs = {}
 
         try:
-            announcer.start()
-
             while True:
                 # calculate results in main process to not take any more bets 
                 client_sock = self.__accept_new_connection()
@@ -70,25 +65,31 @@ class Server:
         except Exception as e:
             logging.error(f"error: {e}")  
         finally: 
-
             self._server_socket.close()
 
-            for pid, proc in client_procs.items():
-                if proc.is_alive():
-                    os.kill(pid, signal.SIGTERM)
-                proc.join()
-
             # send SIGTERM to child processes
-            os.kill(announcer.pid, signal.SIGTERM)
-            announcer.join()
-
-            # close sockets that are waiting for server response
-            for sock in clients_pending.values():
-                sock.close()
+            for proc in client_procs.values():
+                if proc.is_alive():
+                    proc.terminate()
+                proc.join()
 
             manager.shutdown()
             logging.debug("[MAIN] exiting...")  
 
+
+    def __accept_new_connection(self):
+        """
+        Accept new connections
+
+        Function blocks until a connection to a client is made.
+        Then connection created is printed and returned
+        """
+
+        # Connection arrived
+        logging.info('[MAIN] action: accept_connections | result: in_progress')
+        c, addr = self._server_socket.accept()
+        logging.info(f'[MAIN] action: accept_connections | result: success | ip: {addr[0]}')
+        return c
 
 
     def __handle_client_connection(self, 
@@ -118,27 +119,28 @@ class Server:
             elif msg_type == protocol.EOT:
                 logging.info(f"[CLIENT] action: eot_received | result: success | client_id: {cli_id}")
                 ended_client_ids[cli_id] = None
-                protocol.send_ack(client_sock)
 
-            elif msg_type == protocol.QWIN:
-                logging.info(f"[CLIENT] action: winners_query_received | result: success | client_id: {cli_id}")
-                protocol.send_ack(client_sock)
-                clients_pending[cli_id] = client_sock
-
-                # No more bets will be received.
+                # All clients finished, send the results
                 # side note: since are dict proxies, using == operator will not compare the dicts
                 if dict(client_ids) == dict(ended_client_ids):
                     client_ids.clear()
                     ended_client_ids.clear()
                     send_result_event.set()
+                    logging.info(f"[CLIENT] action: lottery | result: success")
 
-                # dont close the sock; respond later
-                return
+                protocol.send_ack(client_sock)
 
-            #msg = client_sock.recv(1024).rstrip().decode('utf-8')
-            #addr = client_sock.getpeername()
-            #logging.info(f'action: receive_message | result: success | ip: {addr[0]} | msg: {msg}')
-            #client_sock.send("{}\n".format(msg).encode('utf-8'))
+            elif msg_type == protocol.QWIN:
+                logging.info(f"[CLIENT] action: winners_query_received | result: success | client_id: {cli_id}")
+                #clients_pending[cli_id] = client_sock
+
+                if send_result_event.is_set():
+                    protocol.send_ack(client_sock)
+                    self.__send_winners(cli_id, client_sock, bets_lock)
+
+                else:
+                    protocol.send_nack(client_sock)
+
         except OSError as e:
             logging.error(f"[CLIENT] action: receive_message | result: fail | error: {e}")
         except protocol.ProtocolError as e:
@@ -149,20 +151,16 @@ class Server:
             client_sock.close()
  
 
-    def __accept_new_connection(self):
-        """
-        Accept new connections
+    def __send_winners(self, cli_id, client_sock, bets_lock):
+        winners = 0
+        with bets_lock:
+            for bet in utils.load_bets():
+                if utils.has_won(bet) and str(bet.agency) == cli_id:
+                    winners += 1
 
-        Function blocks until a connection to a client is made.
-        Then connection created is printed and returned
-        """
-
-        # Connection arrived
-        logging.info('[MAIN] action: accept_connections | result: in_progress')
-        c, addr = self._server_socket.accept()
-        logging.info(f'[MAIN] action: accept_connections | result: success | ip: {addr[0]}')
-        return c
-
+        protocol.send_winners(client_sock, str(winners))
+        logging.info(f"[CLIENT] action: winners_sent | result: success | client_id: {cli_id}")
+         
 
     def __announce_winners_handler(self, clients_pending, bets_lock, send_result_event):
         try:

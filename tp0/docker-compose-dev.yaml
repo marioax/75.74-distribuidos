@@ -26,10 +26,29 @@ services:
       - CLI_ID=1
       - CLI_LOG_LEVEL=DEBUG
       - NAME=SANTIAGO
-      - SURNAME=PEREZ
-      - DNI=17903000
+      - SURNAME=RODRIGUEZ
+      - DNI=20023000
       - BIRTH=1999-03-17
-      - NUM=12664
+      - NUM=24828
+    networks:
+      - testing_net
+    depends_on:
+      - server
+  client_2:
+    container_name: client_2
+    image: client:latest
+    entrypoint: /client
+    volumes:
+      - ./client/config.yaml:/config.yaml
+      - ./.data/agency-2.csv:/bets.csv
+    environment:
+      - CLI_ID=2
+      - CLI_LOG_LEVEL=DEBUG
+      - NAME=PEDRO
+      - SURNAME=PEREZ
+      - DNI=24769000
+      - BIRTH=1999-03-17
+      - NUM=3858
     networks:
       - testing_net
     depends_on:
