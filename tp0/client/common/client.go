@@ -1,9 +1,7 @@
 package common
 
 import (
-	"os"
-	"os/signal"
-	"syscall"
+    "os"
 	"net"
 	"time"
     "encoding/csv"
@@ -22,14 +20,16 @@ type ClientConfig struct {
 // Client Entity that encapsulates how
 type Client struct {
 	config ClientConfig
+    shutdown chan bool
 	conn   net.Conn
 }
 
 // NewClient Initializes a new client receiving the configuration
 // as a parameter
-func NewClient(config ClientConfig) *Client {
+func NewClient(config ClientConfig, shutdown chan bool) *Client {
 	client := &Client{
 		config: config,
+        shutdown: shutdown,
 	}
 	return client
 }
@@ -39,6 +39,7 @@ func NewClient(config ClientConfig) *Client {
 // is returned
 func (c *Client) createClientSocket() error {
 	conn, err := net.Dial("tcp", c.config.ServerAddress)
+
 	if err != nil {
 		log.Fatalf(
 	        "action: connect | result: fail | client_id: %v | error: %v",
@@ -46,6 +47,7 @@ func (c *Client) createClientSocket() error {
 			err,
 		)
 	}
+    client.conn.SetReadDeadline(time.Now().Add(time.Second)) 
 	c.conn = conn
 	return nil
 }
@@ -53,9 +55,6 @@ func (c *Client) createClientSocket() error {
 // StartClientLoop Send messages to the client until some time threshold is met
 func (c *Client) StartClientLoop() {
     // capture signals
-    sig := make(chan os.Signal, 1)
-    signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM) 
-
     bets_file, err := os.Open("bets.csv")
 
     if err != nil {
@@ -68,22 +67,22 @@ func (c *Client) StartClientLoop() {
     bets_reader := csv.NewReader(bets_file)
 
 
-loop:
     // send all batches of the csv bets file 
     for {
-		select {
-		/*case <-timeout:
+        select {
+        /*
+		case <-timeout:
 	        log.Infof("action: timeout_detected | result: success | client_id: %v",
                 c.config.ID,
             )
 			break loop
-        */
+        */        
         // signal handler
-        case <-sig:
+        case <-c.shutdown:
+            log.Infof("action: shutdown_detected | client_id: %v", c.config.ID)
             bets_file.Close()
             c.conn.Close()
-            log.Infof("received shutdown alert; closing connection | client_id: %v", c.config.ID)
-            break loop
+            return 
 		default:
 		}
         c.createClientSocket()
@@ -104,7 +103,7 @@ loop:
             break
         }
         //if c.config.ID == "1" {
-        bets_reader.ReadAll() // for demo 
+        //    bets_reader.ReadAll() // for demo 
 
         //}
 	    log.Infof("action: send_batch | result: success | number of bets sent: %d",
@@ -116,6 +115,8 @@ loop:
     bets_file.Close()
     c.createClientSocket()
 	log.Infof("action: query_winners | result: in_progress | client_id: %v", c.config.ID)
+    // here the recv must block, since it will
+    client.conn.SetReadDeadline(time.Time{}) 
     winners, err := queryWinners(c.conn)
     c.conn.Close()
 

@@ -1,6 +1,9 @@
 package main
 
 import (
+	"os"
+	"os/signal"
+	"syscall"
 	"fmt"
 	"strings"
 	"time"
@@ -106,7 +109,13 @@ func main() {
 		LoopLapse:     v.GetDuration("loop.lapse"),
 		LoopPeriod:    v.GetDuration("loop.period"),
 	}
+    shutdownCh := make(chan bool, 1) 
+	client := common.NewClient(clientConfig, shutdownCh)
+    go client.StartClientLoop()
 
-	client := common.NewClient(clientConfig)
-	client.StartClientLoop()
+    // Set up signal handling
+    sig := make(chan os.Signal, 1)
+    signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM) 
+    <- sig
+    shutdownCh <- true // send shutdown alert
 }

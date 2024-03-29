@@ -25,11 +25,11 @@ services:
     environment:
       - CLI_ID=1
       - CLI_LOG_LEVEL=DEBUG
-      - NAME=PEDRO
-      - SURNAME=GARCIA
-      - DNI=15512000
+      - NAME=SANTIAGO
+      - SURNAME=PEREZ
+      - DNI=17903000
       - BIRTH=1999-03-17
-      - NUM=31467
+      - NUM=12664
     networks:
       - testing_net
     depends_on:

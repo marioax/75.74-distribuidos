@@ -83,7 +83,7 @@ class Server:
             announcer.join()
 
             # close sockets that are waiting for server response
-            for sock in clients_pending:
+            for sock in clients_pending.values():
                 sock.close()
 
             manager.shutdown()
