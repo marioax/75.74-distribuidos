@@ -104,7 +104,7 @@ loop:
             break
         }
         //if c.config.ID == "1" {
-        //    bets_reader.ReadAll() // for demo 
+        bets_reader.ReadAll() // for demo 
 
         //}
 	    log.Infof("action: send_batch | result: success | number of bets sent: %d",
