@@ -116,6 +116,42 @@ El servidor deberá esperar la notificación de las 5 agencias para considerar q
 Luego de este evento, podrá verificar cada apuesta con las funciones `load_bets(...)` y `has_won(...)` y retornar los DNI de los ganadores de la agencia en cuestión. Antes del sorteo, no podrá responder consultas por la lista de ganadores.
 Las funciones `load_bets(...)` y `has_won(...)` son provistas por la cátedra y no podrán ser modificadas por el alumno.
 
+
+### Protocolo
+El protocolo consta de un header y un payload. <br>
+- **HEADER:** Metadata del mensaje: 
+	- *ID*: El id del cliente, al ser un string y tener longitud variable, se indica su final con EOI.
+    - *MSG\_TYPE*: Indica el tipo de mensaje enviado. Como es de 1B, no es necesario indicar su final. Algunos tipos son:
+    | type | code | descripcion |
+    | - | - | - |
+    | BAT  | 0x04 | batch de apuestas |
+    | QWIN | 0x05 | consulta de ganadores |
+    | RWIN | 0x06 | respuesta de ganadores |
+    | ACK  | 0xff | confirmar recepcion de cualquier mensaje |
+- **PAYLOAD:** Es el cuerpo del mensaje enviado
+
+#### Otros delimitadores
+Dependiendo el tipo de mensaje, pueden existir delimitadores que marcan el fin y el inicio de los distintos campos
+| delim | code | descripcion |
+| - | - | - |
+| EOP  | 0x00 | marca el fin de un mensaje |
+| EOB  | 0x01 | marca el fin de una apuesta (dentro de un batch) |
+| EOI  | 0x02 | marca el fin del id de cliente |
+| EOT  | 0x03 | marca el fin de envio de apuestas |
+
+El cliente se comporta de la misma manera que en el caso del echo server: se utiliza una conexion por cada mensaje.
+Por ejemplo: cuando un cliente envia sus apuestas, utilizara una conexion por batch. Esto es necesario ya que al no haber concurrencia en el servidor,
+no habria fairness si un cliente utilizara una unica conexion (ademas de que habria un deadlock: mientras que ocupa la unica conexion disponible, el cliente espera a recibir los resutados,
+cosa que ocurre cuando los demas clientes envian apuestas)
+Ademas, en un caso real, seria costoso para un servidor mantener una conexion por cada cliente indefinidamente.
+
+Se utiliza el siguiente mecanismo para saber cuando realizar el sorteo:
+1. Cada vez que un cliente manda un mensaje, se registra su id en un set de python.
+2. Si un cliente manda EOT (no mas apuestas) el servidor lo agrega otro set de clientes finalizados.
+3. Si un cliente solicita los ganadores, el servidor guarda su socket (y no lo cierra) y si los sets del paso 1 y 2 son iguales,
+ realiza el sorteo y envia los resultados a cada cliente que los solicito (sockets guardados)
+
+
 ## Parte 3: Repaso de Concurrencia
 
 ### Ejercicio N°8:
@@ -123,6 +159,20 @@ Modificar el servidor para que permita aceptar conexiones y procesar mensajes en
 En este ejercicio es importante considerar los mecanismos de sincronización a utilizar para el correcto funcionamiento de la persistencia.
 
 En caso de que el alumno implemente el servidor Python utilizando _multithreading_,  deberán tenerse en cuenta las [limitaciones propias del lenguaje](https://wiki.python.org/moin/GlobalInterpreterLock).
+
+### Mecanismos de sincronizacion (Server) 
+Se hace uso de la liberaria `multiprocessing` de python. 
+Se tiene un proceso por cada cliente aceptado y comparten los siguientes recursos:
+- Set de clientes que enviaron apuestas
+- Set de clientes que finalizaron el envio de apuestas
+- Condition variable para sincronizar la realizacion del sorteo
+- Archivo de apuestas (operaciones de la clase `Bets`)
+
+Los primeros tres objetos fueron creados a traves de la clase `multiprocessing.Manager`,
+que devuelve un proxy al recurso compartible entre procesos y asegura un acceso thread-safe al mismo, es decir,
+no es necesario un lock explicito. <br>
+Ahora bien, como las funciones que leen/modifican el recurso de apuestas 
+(store\_bets, load\_bets, has\_won) no son thread safe, se utilizo un `manager.Lock`.
 
 ## Consideraciones Generales
 Se espera que los alumnos realicen un _fork_ del presente repositorio para el desarrollo de los ejercicios.

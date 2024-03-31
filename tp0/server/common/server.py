@@ -41,7 +41,6 @@ class Server:
         # for winner query logic
         client_ids = manager.dict()
         ended_client_ids = manager.dict() 
-        clients_pending = manager.dict() # clients that are waiting response
         send_result_event = manager.Event()
         # ~
 
@@ -53,11 +52,11 @@ class Server:
             while True:
                 # calculate results in main process to not take any more bets 
                 client_sock = self.__accept_new_connection()
-                p_args = (client_sock, client_ids, ended_client_ids, clients_pending, bets_lock, send_result_event) 
+                p_args = (client_sock, client_ids, ended_client_ids, bets_lock, send_result_event) 
                 p = mp.Process(target=self.__handle_client_connection, args=p_args)
-                client_procs[p.pid] = p
                 p.start()
-                self.__join_finished(client_procs)
+                client_procs[p.pid] = p
+                self.__join_procs(client_procs, force=False)
             
 
         except ShutdownInterrupt:
@@ -68,10 +67,7 @@ class Server:
             self._server_socket.close()
 
             # send SIGTERM to child processes
-            for proc in client_procs.values():
-                if proc.is_alive():
-                    proc.terminate()
-                proc.join()
+            self.__join_procs(client_procs, force=True)
 
             manager.shutdown()
             logging.debug("[MAIN] exiting...")  
@@ -96,7 +92,6 @@ class Server:
                                    client_sock,
                                    client_ids, 
                                    ended_client_ids, 
-                                   clients_pending, 
                                    bets_lock, 
                                    send_result_event):
         """
@@ -107,18 +102,20 @@ class Server:
         """
         try:
             cli_id, msg_type, payload = protocol.recv(client_sock)
-            client_ids[cli_id] = None
 
             if msg_type == protocol.BAT:
                 bets = protocol.parse_bets(cli_id, payload)
                 with bets_lock:
                     utils.store_bets(bets)
                 logging.info(f"[CLIENT] action: bets_stored | result: success | client_id: {cli_id} | number of bets: {len(bets)}")
+                client_ids[cli_id] = None
                 protocol.send_ack(client_sock)
 
             elif msg_type == protocol.EOT:
                 logging.info(f"[CLIENT] action: eot_received | result: success | client_id: {cli_id}")
-                ended_client_ids[cli_id] = None
+
+                if cli_id in client_ids:
+                    ended_client_ids[cli_id] = None
 
                 # All clients finished, send the results
                 # side note: since are dict proxies, using == operator will not compare the dicts
@@ -132,14 +129,13 @@ class Server:
 
             elif msg_type == protocol.QWIN:
                 logging.info(f"[CLIENT] action: winners_query_received | result: success | client_id: {cli_id}")
-                #clients_pending[cli_id] = client_sock
 
                 if send_result_event.is_set():
                     protocol.send_ack(client_sock)
                     self.__send_winners(cli_id, client_sock, bets_lock)
-
                 else:
                     protocol.send_nack(client_sock)
+
 
         except OSError as e:
             logging.error(f"[CLIENT] action: receive_message | result: fail | error: {e}")
@@ -162,42 +158,20 @@ class Server:
         logging.info(f"[CLIENT] action: winners_sent | result: success | client_id: {cli_id}")
          
 
-    def __announce_winners_handler(self, clients_pending, bets_lock, send_result_event):
-        try:
-            while True:
-                send_result_event.wait()
-                send_result_event.clear()
-                logging.info(f"[ANNOUNCER] action: lottery | result: in_progress")
-
-                winners = {i : 0 for i in clients_pending.keys()}
-                
-                with bets_lock:
-                    for bet in utils.load_bets():
-                        if utils.has_won(bet):
-                            winners[str(bet.agency)] += 1
-
-                logging.info(f"[ANNOUNCER] action: lottery | result: success")
-
-                for cli_id, sock in list(clients_pending.items()):
-                    protocol.send_winners(sock, str(winners[cli_id]))
-                    sock.close()
-                    clients_pending.pop(cli_id)
-
-
-        except ShutdownInterrupt:
-            logging.debug("[ANNOUNCER] received shutdown alert from parent; cleaning up")
-        except Exception as e:
-            logging.error(f"[ANNOUNCER] action: lottery | result: error | message: {e}")
-
-        
-    def __join_finished(self, processes):
+    def __join_procs(self, procs, force=False):
         joined = 0
+        forced = 0
 
-        for pid, p in list(processes.items()):
-            if not p.is_alive():
-                p.join()
-                processes.pop(pid)
-                joined += 1
+        for pid, p in list(procs.items()):
+            if p.is_alive():
+                if force:
+                    p.terminate() # SIGTERM
+                    forced += 1 
+                else:
+                    continue
+            p.join()
+            procs.pop(pid)
+            joined += 1
             
-        logging.debug(f"[MAIN] action: join_process | status: sucess | processes joined: {joined}")
+        logging.debug(f"[MAIN] action: join_process | status: sucess | processes joined: {joined} | forced termination: {forced}")
 
