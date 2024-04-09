@@ -13,12 +13,15 @@ from . import utils
     |  ID  |  T  |  L  |   P   |
                \            \____ payload (X byte)
                 \__ message type (1 byte)
+
+    / ---- HEADER ---- /
+
 '''
 
-HSIZE = 6  # header size (ID + T + L)
 IDSIZE = 1 # peer id size
 TSIZE = 1  # type size
 LSIZE = 4  # length size
+HSIZE = IDSIZE + TSIZE + LSIZE 
 
 # Types
 ACK = 0x00

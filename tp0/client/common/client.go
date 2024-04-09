@@ -1,11 +1,11 @@
 package common
 
 import (
-	"os"
-	"os/signal"
-	"syscall"
-	"net"
-	"time"
+    "os"
+    "os/signal"
+    "syscall"
+    "net"
+    "time"
     "encoding/csv"
 
     log "github.com/sirupsen/logrus"
@@ -58,45 +58,45 @@ func (c *Client) StartClientLoop() {
     bets_file, err := os.Open("bets.csv")
 
     if err != nil {
-   	    log.Errorf("action: open_bets_file | result: fail | client_id: %v | error: %v",
+        log.Errorf("action: open_bets_file | result: fail | client_id: %v | error: %v",
             c.config.ID,
-	        err,
-	    )
-	    return
+            err,
+        )
+        return
     }
     bets_reader := csv.NewReader(bets_file)
-	c.createClientSocket()
+    c.createClientSocket()
 
-	for {
-		select {
+    for {
+        select {
         // signal handler
         case <-sig:
             log.Infof("received shutdown alert; closing connection | client_id: %v", c.config.ID)
             break
-		default:
-		}
+        default:
+        }
 
         bets_sent, err := sendNextBatch(c.conn, bets_reader)
 
         if err != nil {
             log.Errorf("action: send_message | result: fail | client_id: %v | error: %v",
                 c.config.ID,
-				err,
-			)
-		    break	
+                err,
+            )
+            break   
         }
 
-        break // for demo send one batch
 
         // if there are not more batches to send
         if bets_sent <= 0 {
             break
         }
-		log.Infof("action: bets_sent | result: success | number of bets sent: %d",
+        log.Infof("action: bets_sent | result: success | number of bets sent: %d",
             bets_sent,
         )
- 		time.Sleep(c.config.LoopPeriod)
-	}
+        time.Sleep(c.config.LoopPeriod)
+        //break // for demo send one batch
+    }
     sendEOT(c.conn) // dont care if fails
     c.conn.Close()
     bets_file.Close()

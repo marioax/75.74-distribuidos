@@ -25,11 +25,11 @@ services:
     environment:
       - CLI_ID=1
       - CLI_LOG_LEVEL=DEBUG
-      - NAME=SANTIAGO
-      - SURNAME=MORALES
-      - DNI=41416000
+      - NAME=MARTIN
+      - SURNAME=PEREZ
+      - DNI=16450000
       - BIRTH=1999-03-17
-      - NUM=1345
+      - NUM=16462
     networks:
       - testing_net
     depends_on:
@@ -45,10 +45,10 @@ services:
       - CLI_ID=2
       - CLI_LOG_LEVEL=DEBUG
       - NAME=SANTIAGO
-      - SURNAME=MORALES
-      - DNI=18895000
+      - SURNAME=GARCIA
+      - DNI=45224000
       - BIRTH=1999-03-17
-      - NUM=27210
+      - NUM=11333
     networks:
       - testing_net
     depends_on:
@@ -63,11 +63,11 @@ services:
     environment:
       - CLI_ID=3
       - CLI_LOG_LEVEL=DEBUG
-      - NAME=ALFREDO
-      - SURNAME=MORALES
-      - DNI=36559000
+      - NAME=JUAN
+      - SURNAME=RODRIGUEZ
+      - DNI=24134000
       - BIRTH=1999-03-17
-      - NUM=24207
+      - NUM=26801
     networks:
       - testing_net
     depends_on:
@@ -82,11 +82,11 @@ services:
     environment:
       - CLI_ID=4
       - CLI_LOG_LEVEL=DEBUG
-      - NAME=JUAN
-      - SURNAME=MORALES
-      - DNI=18865000
+      - NAME=ALFREDO
+      - SURNAME=LOPEZ
+      - DNI=35868000
       - BIRTH=1999-03-17
-      - NUM=1250
+      - NUM=23828
     networks:
       - testing_net
     depends_on:
@@ -102,10 +102,10 @@ services:
       - CLI_ID=5
       - CLI_LOG_LEVEL=DEBUG
       - NAME=PEDRO
-      - SURNAME=RODRIGUEZ
-      - DNI=38685000
+      - SURNAME=MORALES
+      - DNI=21470000
       - BIRTH=1999-03-17
-      - NUM=24186
+      - NUM=19979
     networks:
       - testing_net
     depends_on:

@@ -21,12 +21,14 @@ import (
                \            \____ payload (X byte)
                 \__ message type (1 byte)
 
+    / ---- HEADER ---- /
+
 */
 
-var HSIZE = 6
 var IDSIZE = 1
 var TSIZE = 1
 var LSIZE = 4
+var HSIZE = IDSIZE + TSIZE + LSIZE
 
 // message types
 var ACK byte = 0x00
@@ -58,10 +60,13 @@ var BATCH_SIZE = 100
 
 
 func sendAll(conn net.Conn, mtype byte, payload string) (error) {
+    // convert payload length from uint32 to big endian byte array
     payload_size := make([]byte, 4)
     binary.BigEndian.PutUint32(payload_size, uint32(len(payload)))
+
     cli_id, _ := strconv.ParseUint(CLI_ID, 10, 8)
 
+    // HEADER = ID + T + L + P
     msg := []byte{byte(cli_id), mtype}
     msg = append(msg, payload_size...)
     msg = append(msg, []byte(payload)...)

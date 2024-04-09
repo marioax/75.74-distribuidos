@@ -5,7 +5,6 @@ import signal
 from . import protocol
 from . import utils
 
-
 class Server:
     def __init__(self, port, listen_backlog):
         # Initialize server socket
@@ -35,6 +34,7 @@ class Server:
         try:
             while True:
                 self._client_socket = self.__accept_new_connection()
+
                 self.__handle_client_connection(self._client_socket)
                 self._client_socket = None
 
