@@ -2,38 +2,39 @@ package common
 
 import (
     "errors"
-    "bytes"
-    "fmt"
+    "strings"
+    "encoding/binary"
     "net"
     "os"
 ) 
 
-var EOP byte = 0
-var EOB byte = 1
-var ACK string = "ACK"
+var HSIZE = 5
+var TSIZE = 1
+var LSIZE = 4
 
-func sendBet(conn net.Conn) (error) {
-    // fields are newline separated
-    payload := []byte(
-        fmt.Sprintf(
-            "%s\n%s\n%s\n%s\n%s\n%s",
-            os.Getenv("CLI_ID"),
-            os.Getenv("NAME"),
-            os.Getenv("SURNAME"),
-            os.Getenv("DNI"),
-            os.Getenv("BIRTH"),
-            os.Getenv("NUM"),
-        ),
-    )
-    payload = append(payload, EOB)
-    payload = append(payload, EOP)
+// message types
+var ACK byte = 0x00
+var BET byte = 0x01
 
-    to_send, sent := len(payload), 0
+// BET type 
+var SEP string = ","
+var EOB string = "\n"
+
+
+func sendAll(conn net.Conn, mtype byte, payload string) (error) {
+    payload_size := make([]byte, 4)
+    binary.BigEndian.PutUint32(payload_size, uint32(len(payload)))
+
+    msg := []byte{mtype}
+    msg = append(msg, payload_size...)
+    msg = append(msg, []byte(payload)...)
+
+    to_send, sent := len(msg), 0
     var err error = nil
 
     for sent < to_send {
         n := 0
-        n, err = conn.Write(payload[sent:])
+        n, err = conn.Write(msg[sent:])
         
         if err != nil {
             break
@@ -44,26 +45,57 @@ func sendBet(conn net.Conn) (error) {
 }
 
 
-func recvBetACK(conn net.Conn) (string, error) {
-    buf := make([]byte, 1024) // should receive "ACK\0"
+func recvAll(conn net.Conn) (byte, string, error) {
+    header := make([]byte, HSIZE) 
     read := 0
 
-    for {
-        n, err := conn.Read(buf)
-        
+    // read header
+    for read < HSIZE {
+        n, err := conn.Read(header[read:])
+
         if err != nil { 
-            return "", err 
+            return 0xff, "", err 
         }
         read += n
+    }
+    mtype := header[0] // change this if type size grows beyond 1 byte
+    toread := int(binary.BigEndian.Uint32(header[TSIZE:LSIZE + TSIZE]))
+    payload := make([]byte, toread)
+    read = 0
 
-        if bytes.HasSuffix(buf, []byte{EOP}) {
-            break
+    // read payload
+    for read < toread {
+        n, err := conn.Read(payload[read:])
+        
+        if err != nil { 
+            return mtype, "", err 
         }
+        read += n
     }
-    str_buf := string(buf[:read - 1])
+    return mtype, string(payload), nil
+}
+
+
+func sendBet(conn net.Conn) (error) {
+    fields := []string{
+        os.Getenv("CLI_ID"),
+        os.Getenv("NAME"),
+        os.Getenv("SURNAME"),
+        os.Getenv("DNI"),
+        os.Getenv("BIRTH"),
+        os.Getenv("NUM"),
+    }
+    bet := strings.Join(fields, SEP) + EOB
+    err := sendAll(conn, BET, bet)
+
+    if err != nil {
+        return err
+    }
+    mtype, _, err := recvAll(conn)
     
-    if str_buf != ACK {
-        return "", errors.New("message received is not ACK")
+    // message received is not ACK
+    if err == nil && mtype != ACK {
+        return errors.New("ACK not received")
     }
-    return str_buf, nil
+    return err
 }

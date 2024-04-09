@@ -24,11 +24,11 @@ services:
     environment:
       - CLI_ID=1
       - CLI_LOG_LEVEL=DEBUG
-      - NAME=JUAN
-      - SURNAME=LOPEZ
-      - DNI=32906000
+      - NAME=MARTIN
+      - SURNAME=GARCIA
+      - DNI=26643000
       - BIRTH=1999-03-17
-      - NUM=12189
+      - NUM=14602
     networks:
       - testing_net
     depends_on:
@@ -42,11 +42,11 @@ services:
     environment:
       - CLI_ID=2
       - CLI_LOG_LEVEL=DEBUG
-      - NAME=SANTIAGO
-      - SURNAME=LOPEZ
-      - DNI=41300000
+      - NAME=PEDRO
+      - SURNAME=RODRIGUEZ
+      - DNI=26867000
       - BIRTH=1999-03-17
-      - NUM=1487
+      - NUM=5923
     networks:
       - testing_net
     depends_on:
@@ -60,11 +60,11 @@ services:
     environment:
       - CLI_ID=3
       - CLI_LOG_LEVEL=DEBUG
-      - NAME=JUAN
+      - NAME=PEDRO
       - SURNAME=RODRIGUEZ
-      - DNI=41095000
+      - DNI=19099000
       - BIRTH=1999-03-17
-      - NUM=28333
+      - NUM=27684
     networks:
       - testing_net
     depends_on:
@@ -78,11 +78,11 @@ services:
     environment:
       - CLI_ID=4
       - CLI_LOG_LEVEL=DEBUG
-      - NAME=JUAN
-      - SURNAME=GARCIA
-      - DNI=20627000
+      - NAME=MARTIN
+      - SURNAME=RODRIGUEZ
+      - DNI=34170000
       - BIRTH=1999-03-17
-      - NUM=6396
+      - NUM=16771
     networks:
       - testing_net
     depends_on:
@@ -96,11 +96,11 @@ services:
     environment:
       - CLI_ID=5
       - CLI_LOG_LEVEL=DEBUG
-      - NAME=ALFREDO
-      - SURNAME=MORALES
-      - DNI=34804000
+      - NAME=MARTIN
+      - SURNAME=GARCIA
+      - DNI=44502000
       - BIRTH=1999-03-17
-      - NUM=29289
+      - NUM=16293
     networks:
       - testing_net
     depends_on:

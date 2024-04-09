@@ -30,8 +30,6 @@ class Server:
         signal.signal(signal.SIGINT, sig_handler)
         signal.signal(signal.SIGTERM, sig_handler)
 
-        # TODO: Modify this program to handle signal to graceful shutdown
-        # the server
         try:
             while True:
                 self._client_socket = self.__accept_new_connection()
@@ -56,12 +54,8 @@ class Server:
             if bets:
                 utils.store_bets(bets)
                 logging.info(f"action: bet_stored | result: success | dni: {bets[0].document} | number: {bets[0].number}")
-                protocol.send_bets_ack(client_sock)
+            protocol.send_ack(client_sock)
 
-            #msg = client_sock.recv(1024).rstrip().decode('utf-8')
-            #addr = client_sock.getpeername()
-            #logging.info(f'action: receive_message | result: success | ip: {addr[0]} | msg: {msg}')
-            #client_sock.send("{}\n".format(msg).encode('utf-8'))
         except OSError as e:
             logging.error(f"action: receive_message | result: fail | error: {e}")
         except protocol.ProtocolError as e:
