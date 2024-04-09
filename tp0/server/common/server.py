@@ -12,6 +12,8 @@ class Server:
         self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._server_socket.bind(('', port))
         self._server_socket.listen(listen_backlog)
+        self._server_id = 0 # change if multiserver architecture
+
         self._client_socket = None
 
     def run(self):
@@ -30,8 +32,6 @@ class Server:
         signal.signal(signal.SIGINT, sig_handler)
         signal.signal(signal.SIGTERM, sig_handler)
 
-        # TODO: Modify this program to handle signal to graceful shutdown
-        # the server
         try:
             while True:
                 self._client_socket = self.__accept_new_connection()
@@ -52,16 +52,20 @@ class Server:
         client socket will also be closed
         """
         try:
-            bets = protocol.recv_bets(client_sock)
-            if bets:
-                utils.store_bets(bets)
-                logging.info(f"action: bets_stored | result: success | client_id: {bets[0].agency} | number of bets: {len(bets)}")
-                protocol.send_bets_ack(client_sock)
+            # runs until EOT is received
+            while True:
+                cli_id, mtype, payload = protocol.recv_msg(client_sock)
+                
+                if mtype == protocol.BET and payload:
+                    bets = protocol.parse_bets(cli_id, payload)
+                    if bets:
+                        utils.store_bets(bets)
+                        logging.info(f"action: bets_stored | result: success | client_id: {cli_id} | number of bets: {len(bets)}")
+                        protocol.send_ack(client_sock, self._server_id)
 
-            #msg = client_sock.recv(1024).rstrip().decode('utf-8')
-            #addr = client_sock.getpeername()
-            #logging.info(f'action: receive_message | result: success | ip: {addr[0]} | msg: {msg}')
-            #client_sock.send("{}\n".format(msg).encode('utf-8'))
+                elif mtype == protocol.EOT:
+                    break
+
         except OSError as e:
             logging.error(f"action: receive_message | result: fail | error: {e}")
         except protocol.ProtocolError as e:
