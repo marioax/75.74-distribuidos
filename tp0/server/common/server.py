@@ -1,14 +1,12 @@
 import os
 import socket
 import signal
-import logging
+import logging 
 import multiprocessing as mp
 
 from . import protocol
 from . import utils
 
-mp_logging = mp.log_to_stderr()    
-mp_logging.setLevel(logging.INFO)
 
 class ShutdownInterrupt(Exception):
     def __init__(self, message=""):
@@ -41,34 +39,45 @@ class Server:
         signal.signal(signal.SIGINT, sig_handler)
         signal.signal(signal.SIGTERM, sig_handler)
  
-        mp.set_start_method('forkserver') # using the default (`fork`) pool.terminate() hangs
         manager = mp.Manager()
 
         # for winner query logic
         ended_client_ids = manager.dict() 
         send_result_event = manager.Event()
         # ~
-
+    
         bets_lock = manager.Lock() 
 
+        cli_terminated_event = manager.Event()
+        max_procs = self._client_num 
+        client_procs = {} 
 
         try:
-            # context manager ensures of calling terminate and join in all workers
-            with mp.Pool(processes=None) as pool:
-                while True:
-                    client_sock = self.__accept_new_connection()
-                    p_args = (client_sock, ended_client_ids, bets_lock, send_result_event) 
-                    pool.apply_async(self._handle_client_connection, args=p_args)
+            while True:
+                client_sock = self.__accept_new_connection()
+                p_args = (client_sock, ended_client_ids, bets_lock, send_result_event, cli_terminated_event) 
+                p = mp.Process(target=self._handle_client_connection, args=p_args)
+                p.start()
+                client_procs[p.pid] = p
+
+                # if exceded max_procs blocks until a process terminates 
+                if len(client_procs) >= max_procs: 
+                    cli_terminated_event.wait()
+
+                cli_terminated_event.clear()
+                self.__join_procs(client_procs)
+
             
 
         except ShutdownInterrupt:
-            mp_logging.debug("[MAIN] received shutdown alert; cleaning up...")
+            logging.debug("[MAIN] received shutdown alert; cleaning up...")
         except Exception as e:
-            mp_logging.error(f"[MAIN] error: {e}")  
+            logging.error(f"[MAIN] error: {e}")  
         finally: 
             self._server_socket.close()
+            self.__join_procs(client_procs, terminate=True)
             manager.shutdown()
-            mp_logging.debug("[MAIN] exiting...")  
+            logging.debug("[MAIN] exiting...")  
 
 
     def __accept_new_connection(self):
@@ -80,9 +89,9 @@ class Server:
         """
 
         # Connection arrived
-        mp_logging.info('[MAIN] action: accept_connections | result: in_progress')
+        logging.info('[MAIN] action: accept_connections | result: in_progress')
         c, addr = self._server_socket.accept()
-        mp_logging.info(f'[MAIN] action: accept_connections | result: success | ip: {addr[0]}')
+        logging.info(f'[MAIN] action: accept_connections | result: success | ip: {addr[0]}')
         return c
 
 
@@ -90,7 +99,8 @@ class Server:
                                   client_sock,
                                   ended_client_ids, 
                                   bets_lock, 
-                                  send_result_event):
+                                  send_result_event,
+                                  termination_event):
         """
         Read message from a specific client socket and closes the socket
 
@@ -110,32 +120,33 @@ class Server:
                     if bets:
                         with bets_lock:
                             utils.store_bets(bets)
-                        mp_logging.info(f"[CLIENT] action: bets_stored | result: success | client_id: {cli_id} | number of bets: {len(bets)}")
+                        logging.info(f"[CLIENT] action: bets_stored | result: success | client_id: {cli_id} | number of bets: {len(bets)}")
                         protocol.send_ack(client_sock, self._server_id)
 
                     cli_id, mtype, payload = protocol.recv_msg(client_sock)
 
-                mp_logging.debug(f"[CLIENT] action: eot_received | result: success | client_id: {cli_id}")
+                logging.debug(f"[CLIENT] action: eot_received | result: success | client_id: {cli_id}")
                 ended_client_ids[cli_id] = True 
                 protocol.send_ack(client_sock, self._server_id)
 
                 # `perform lottery`
                 if len(ended_client_ids) == self._client_num:
-                    mp_logging.info(f"[CLIENT] action: lottery | result: success")
+                    logging.info(f"[CLIENT] action: lottery | result: success")
                     send_result_event.set()
 
             elif mtype == protocol.QWIN:
-                mp_logging.debug(f"[CLIENT] action: winners_query_received | result: success | client_id: {cli_id}")
+                logging.debug(f"[CLIENT] action: winners_query_received | result: success | client_id: {cli_id}")
                 send_result_event.wait()
-                self.__send_winners(client_sock, cli_id, bets_lock)                    
+                self._send_winners(client_sock, cli_id, bets_lock)                    
                                                         
+            termination_event.set()
 
         except OSError as e:
-            mp_logging.error(f"[CLIENT] action: receive_message | result: fail | error: {e}")
+            logging.error(f"[CLIENT] action: receive_message | result: fail | error: {e}")
         except protocol.ProtocolError as e:
-            mp_logging.error(f"[CLIENT] action: receive_bets | result: fail | error: {e.message}")
+            logging.error(f"[CLIENT] action: receive_bets | result: fail | error: {e.message}")
         except ShutdownInterrupt:
-            mp_logging.debug("[CLIENT] received shutdown alert from parent; cleaning up")
+            logging.debug("[CLIENT] received shutdown alert from parent; cleaning up")
         finally:
             client_sock.close()
  
@@ -144,27 +155,26 @@ class Server:
         winners = 0
         with bets_lock:
             for bet in utils.load_bets():
-                if utils.has_won(bet) and str(bet.agency) == cli_id:
+                if utils.has_won(bet) and bet.agency == cli_id:
                     winners += 1
 
         protocol.send_winners(client_sock, self._server_id, winners)
-        mp_logging.debug(f"[CLIENT] action: winners_sent | result: success | client_id: {cli_id}")
+        logging.debug(f"[CLIENT] action: winners_sent | result: success | client_id: {cli_id}")
          
 
-    def __join_procs(self, procs, force=False):
+    def __join_procs(self, procs, terminate=False):
         joined = 0
         forced = 0
 
         for pid, p in list(procs.items()):
-            if p.is_alive():
-                if force:
-                    p.terminate() # SIGTERM
-                    forced += 1 
-                else:
+            if terminate and p.is_alive():
+                p.terminate() # SIGTERM
+                forced += 1 
+            elif p.is_alive():
                     continue
             p.join()
             procs.pop(pid)
             joined += 1
 
-        mp_logging.debug(f"[MAIN] action: join_process | status: sucess | processes joined: {joined} | forced termination: {forced}")
+        logging.debug(f"[MAIN] action: join_process | status: sucess | processes joined: {joined} | forced termination: {forced}")
 

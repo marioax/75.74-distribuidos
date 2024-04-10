@@ -162,14 +162,14 @@ En caso de que el alumno implemente el servidor Python utilizando _multithreadin
 ### Mecanismos de sincronizacion (Server) 
 Se hace uso de la liberaria `multiprocessing` de python. 
 Se tiene un proceso por cada cliente aceptado y comparten los siguientes recursos:
-- Set de clientes que enviaron apuestas
+- Archivo de apuestas (operaciones de la clase `Bets`)
 - Set de clientes que finalizaron el envio de apuestas
 - Condition variable para sincronizar la realizacion del sorteo
-- Archivo de apuestas (operaciones de la clase `Bets`)
+- Condition variable para notificar que un proceso termino al proceso main
+(esto para limitar la cantidad de procesos spawneados)
 
-Los primeros tres objetos fueron creados a traves de la clase `multiprocessing.Manager`,
-que devuelve un proxy al recurso compartible entre procesos y asegura un acceso thread-safe al mismo, es decir,
-no es necesario un lock explicito. <br>
+Los ultimos tres objetos fueron creados a traves de la clase `multiprocessing.Manager`,
+que devuelve un proxy (monitor) al recurso compartible entre procesos y asegura un acceso thread-safe al mismo. <br>
 Ahora bien, como las funciones que leen/modifican el recurso de apuestas 
 (store\_bets, load\_bets, has\_won) no son thread safe, se utilizo un `manager.Lock`.
 

@@ -248,7 +248,7 @@ const (
 // date <= 10 chars
 // bet number is int16 <= 5 chars
 // worst case = 73B * 100 < 8kB 
-var BATCH_SIZE = 100
+var BATCH_SIZE = 1000
 
 
 /*
@@ -271,7 +271,7 @@ func sendNextBatch(conn net.Conn, bets_csv *csv.Reader) (int, error) {
 
         // includes EOF
         if err != nil {
-            return 0, err
+            break
         }
         fields := []string{
             bet_record[NAME],
