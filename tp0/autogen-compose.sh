@@ -16,6 +16,8 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - LOGGING_LEVEL=DEBUG
+      - SERVER_ID=0
+      - CLI_NUM=%d
     volumes:
       - ./server/config.ini:/config.ini
     networks:
@@ -42,41 +44,17 @@ cli_template="
     environment:
       - CLI_ID=%d
       - CLI_LOG_LEVEL=DEBUG
-%s
     networks:
       - testing_net
     depends_on:
       - server
 "
 
-bet_template=" \
-     - NAME=%s
-      - SURNAME=%s
-      - DNI=%d
-      - BIRTH=%s
-      - NUM=%d
-"
-
-env_bet_generator() {
-    local names=("PEDRO" "SANTIAGO" "MARTIN" "JUAN" "ALFREDO")
-    local surnames=("RODRIGUEZ" "PEREZ" "GARCIA" "LOPEZ" "MORALES")
-
-    local name=${names[(RANDOM % ${#names[@]})]}
-    local surname=${surnames[(RANDOM % ${#surnames[@]})]}
-    local dni=$((15000000 + 1000 * (RANDOM % 45000000))) 
-    local birth="1999-03-17" 
-    local num=$RANDOM
-
-    local bet=$(printf "$bet_template" "$name" "$surname" $dni "$birth" $num) 
-    printf "$bet"
-}
-
 clients=""
 
 for i in $(seq 1 $1); do
-    bet=$(env_bet_generator) 
-    clients+=$(printf "$cli_template\n" $i $i $i $i "$bet");
+    clients+=$(printf "$cli_template\n" $i $i $i $i);
 done 
 
-printf "$compose" "$clients" > $2
+printf "$compose" $1 "$clients" > $2
 
