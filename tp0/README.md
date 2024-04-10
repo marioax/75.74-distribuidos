@@ -120,36 +120,29 @@ Las funciones `load_bets(...)` y `has_won(...)` son provistas por la cátedra y 
 ### Protocolo
 El protocolo consta de un header y un payload. <br>
 - **HEADER:** Metadata del mensaje: 
-	- *ID*: El id del cliente, al ser un string y tener longitud variable, se indica su final con EOI.
-    - *MSG\_TYPE*: Indica el tipo de mensaje enviado. Como es de 1B, no es necesario indicar su final. Algunos tipos son:
+	- *ID*: Indica el id del peer que envia el mensaje. Su longitud es de 4 bytes big endian
+    - *MSG\_TYPE*: Indica el tipo de mensaje enviado. Su longitud es 1 byte. Algunos tipos son:
     | type | code | descripcion |
     | - | - | - |
-    | BAT  | 0x04 | batch de apuestas |
-    | QWIN | 0x05 | consulta de ganadores |
-    | RWIN | 0x06 | respuesta de ganadores |
-    | ACK  | 0xff | confirmar recepcion de cualquier mensaje |
+    | ACK  | 0x00 | confirmar recepcion de cualquier mensaje |
+    | BET  | 0x01 | el payload debe interpretarse como apuestas |
+    | EOT  | 0x02 | indica el fin de envio de apuestas |
+    - *LENGTH*: Indica el largo del payload a continuacion. Su longitud es de 4 bytes.
 - **PAYLOAD:** Es el cuerpo del mensaje enviado
 
+El procedimiento para recibir un mensaje seria primero leer el header (de longitud fija)
+y luego leer el payload sabiendo la longitud. Esto permite leer mas de 1 byte en cada llamada de recv.
+
 #### Otros delimitadores
-Dependiendo el tipo de mensaje, pueden existir delimitadores que marcan el fin y el inicio de los distintos campos
+En el caso de un mensaje de tipo **BET**, cada apuesta esta delimitada por el siguiente campo:
 | delim | code | descripcion |
 | - | - | - |
-| EOP  | 0x00 | marca el fin de un mensaje |
 | EOB  | 0x01 | marca el fin de una apuesta (dentro de un batch) |
-| EOI  | 0x02 | marca el fin del id de cliente |
-| EOT  | 0x03 | marca el fin de envio de apuestas |
 
-El cliente se comporta de la misma manera que en el caso del echo server: se utiliza una conexion por cada mensaje.
-Por ejemplo: cuando un cliente envia sus apuestas, utilizara una conexion por batch. Esto es necesario ya que al no haber concurrencia en el servidor,
-no habria fairness si un cliente utilizara una unica conexion (ademas de que habria un deadlock: mientras que ocupa la unica conexion disponible, el cliente espera a recibir los resutados,
-cosa que ocurre cuando los demas clientes envian apuestas)
-Ademas, en un caso real, seria costoso para un servidor mantener una conexion por cada cliente indefinidamente.
-
-Se utiliza el siguiente mecanismo para saber cuando realizar el sorteo:
-1. Cada vez que un cliente manda un mensaje, se registra su id en un set de python.
-2. Si un cliente manda EOT (no mas apuestas) el servidor lo agrega otro set de clientes finalizados.
-3. Si un cliente solicita los ganadores, el servidor guarda su socket (y no lo cierra) y si los sets del paso 1 y 2 son iguales,
- realiza el sorteo y envia los resultados a cada cliente que los solicito (sockets guardados)
+El cliente realiza el envio de todas sus apuestas en una unica conexion, para evitar el repetido overhead de crear y destruir conexiones.
+Esto carece de sentido en una implementacion no concurrente y que hace uso tan intensivo del canal de comunicacion, 
+ya que se puede observar claramente que los clientes que esten en el buffer de aceptacion del server, tendran que esperar una infinidad de 
+tiempo antes de comenzar a enviar sus apuestas.
 
 
 ## Parte 3: Repaso de Concurrencia

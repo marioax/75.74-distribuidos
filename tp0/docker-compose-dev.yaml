@@ -9,6 +9,8 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - LOGGING_LEVEL=DEBUG
+      - SERVER_ID=0
+      - CLI_NUM=5
     volumes:
       - ./server/config.ini:/config.ini
     networks:
@@ -25,11 +27,6 @@ services:
     environment:
       - CLI_ID=1
       - CLI_LOG_LEVEL=DEBUG
-      - NAME=SANTIAGO
-      - SURNAME=RODRIGUEZ
-      - DNI=29618000
-      - BIRTH=1999-03-17
-      - NUM=7951
     networks:
       - testing_net
     depends_on:
@@ -44,11 +41,6 @@ services:
     environment:
       - CLI_ID=2
       - CLI_LOG_LEVEL=DEBUG
-      - NAME=JUAN
-      - SURNAME=LOPEZ
-      - DNI=28225000
-      - BIRTH=1999-03-17
-      - NUM=7363
     networks:
       - testing_net
     depends_on:
@@ -63,11 +55,6 @@ services:
     environment:
       - CLI_ID=3
       - CLI_LOG_LEVEL=DEBUG
-      - NAME=MARTIN
-      - SURNAME=MORALES
-      - DNI=19802000
-      - BIRTH=1999-03-17
-      - NUM=7655
     networks:
       - testing_net
     depends_on:
@@ -82,11 +69,6 @@ services:
     environment:
       - CLI_ID=4
       - CLI_LOG_LEVEL=DEBUG
-      - NAME=SANTIAGO
-      - SURNAME=LOPEZ
-      - DNI=39542000
-      - BIRTH=1999-03-17
-      - NUM=32215
     networks:
       - testing_net
     depends_on:
@@ -101,11 +83,6 @@ services:
     environment:
       - CLI_ID=5
       - CLI_LOG_LEVEL=DEBUG
-      - NAME=ALFREDO
-      - SURNAME=MORALES
-      - DNI=22891000
-      - BIRTH=1999-03-17
-      - NUM=32016
     networks:
       - testing_net
     depends_on:

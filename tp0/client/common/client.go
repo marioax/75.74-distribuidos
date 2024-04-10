@@ -1,119 +1,112 @@
 package common
 
 import (
-	"os"
-	"os/signal"
-	"syscall"
-	"net"
-	"time"
+    "os"
+    "net"
+    "time"
     "encoding/csv"
 
-	log "github.com/sirupsen/logrus"
+    log "github.com/sirupsen/logrus"
 )
 
 // ClientConfig Configuration used by the client
 type ClientConfig struct {
-	ID            string
-	ServerAddress string
-	LoopLapse     time.Duration
-	LoopPeriod    time.Duration
+    ID            string
+    ServerAddress string
+    LoopLapse     time.Duration
+    LoopPeriod    time.Duration
 }
 
 // Client Entity that encapsulates how
 type Client struct {
-	config ClientConfig
-	conn   net.Conn
+    config ClientConfig
+    conn   net.Conn
+    shutdown chan bool
 }
 
 // NewClient Initializes a new client receiving the configuration
 // as a parameter
-func NewClient(config ClientConfig) *Client {
-	client := &Client{
-		config: config,
-	}
-	return client
+func NewClient(config ClientConfig, shutdown chan bool) *Client {
+    client := &Client{
+        config: config,
+        shutdown: shutdown,
+    }
+    return client
 }
 
 // CreateClientSocket Initializes client socket. In case of
 // failure, error is printed in stdout/stderr and exit 1
 // is returned
 func (c *Client) createClientSocket() error {
-	conn, err := net.Dial("tcp", c.config.ServerAddress)
-	if err != nil {
-		log.Fatalf(
-	        "action: connect | result: fail | client_id: %v | error: %v",
-			c.config.ID,
-			err,
-		)
-	}
-	c.conn = conn
-	return nil
+    conn, err := net.Dial("tcp", c.config.ServerAddress)
+    if err != nil {
+        log.Fatalf(
+            "action: connect | result: fail | client_id: %v | error: %v",
+            c.config.ID,
+            err,
+        )
+    }
+    c.conn = conn
+    return nil
 }
 
 // StartClientLoop Send messages to the client until some time threshold is met
 func (c *Client) StartClientLoop() {
-    // capture signals
-    sig := make(chan os.Signal, 1)
-    signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM) 
-
     bets_file, err := os.Open("bets.csv")
 
     if err != nil {
-   	    log.Errorf("action: open_bets_file | result: fail | client_id: %v | error: %v",
+        log.Errorf("action: open_bets_file | result: fail | client_id: %v | error: %v",
             c.config.ID,
-	        err,
-	    )
-	    return
+            err,
+        )
+        return
     }
     bets_reader := csv.NewReader(bets_file)
+    c.createClientSocket()
 
-
-loop:
-    // send all batches of the csv bets file 
     for {
-		select {
-		/*case <-timeout:
-	        log.Infof("action: timeout_detected | result: success | client_id: %v",
-                c.config.ID,
-            )
-			break loop
-        */
+        select {
         // signal handler
-        case <-sig:
-            bets_file.Close()
-            c.conn.Close()
+        case <- c.shutdown:
             log.Infof("received shutdown alert; closing connection | client_id: %v", c.config.ID)
-            break loop
-		default:
-		}
-        c.createClientSocket()
-        bets_sent, err := sendNextBatch(c.conn, bets_reader) 
-        c.conn.Close()
+            c.conn.Close()
+            bets_file.Close()
+            return 
+        default:
+        }
+
+        bets_sent, err := sendNextBatch(c.conn, bets_reader)
 
         if err != nil {
-   			log.Errorf("action: send_batch | result: fail | client_id: %v | error: %v",
+            log.Errorf("action: send_message | result: fail | client_id: %v | error: %v",
                 c.config.ID,
-				err,
-			)
-            c.conn.Close()
-            bets_file.Close()
-		    return 
+                err,
+            )
+            break   
         }
-        
+
+
+        // if there are not more batches to send
         if bets_sent <= 0 {
             break
         }
-        //if c.config.ID == "1" {
-        bets_reader.ReadAll() // for demo 
-
-        //}
-	    log.Infof("action: send_batch | result: success | number of bets sent: %d",
+        log.Infof("action: bets_sent | result: success | number of bets sent: %d",
             bets_sent,
         )
-        // Wait a time between sending one message and the next one
-		time.Sleep(c.config.LoopPeriod)
-	}
+        time.Sleep(c.config.LoopPeriod)
+        //break // for demo send one batch
+    }
+    err = sendEOT(c.conn)
+    c.conn.Close()
     bets_file.Close()
+    
+    if err != nil {
+        log.Errorf("action: send_message | result: fail | client_id: %v | error: %v",
+            c.config.ID,
+            err,
+        )
+        return
+    }
     c.createClientSocket()
 	log.Infof("action: query_winners | result: in_progress | client_id: %v", c.config.ID)
     winners, err := queryWinners(c.conn)
@@ -124,6 +117,8 @@ loop:
             c.config.ID,
 		    err,
 		)
+
+    } else {
+	    log.Infof("action: query_winners | result: success | client_id: %v  | winners: %v", c.config.ID, winners)
     }
-	log.Infof("action: query_winners | result: success | client_id: %v  | winners: %v", c.config.ID, winners)
 }
