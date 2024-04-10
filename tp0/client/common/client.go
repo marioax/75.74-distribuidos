@@ -52,6 +52,7 @@ func (c *Client) createClientSocket() error {
 
 // StartClientLoop Send messages to the client until some time threshold is met
 func (c *Client) StartClientLoop() {
+    defer close(c.shutdown) // unblock main thread 
     bets_file, err := os.Open("bets.csv")
 
     if err != nil {
@@ -82,9 +83,9 @@ func (c *Client) StartClientLoop() {
                 c.config.ID,
                 err,
             )
-            break   
+            return 
         }
-
+        bets_sent = 0 // for demo send one batch
 
         // if there are not more batches to send
         if bets_sent <= 0 {
@@ -94,7 +95,6 @@ func (c *Client) StartClientLoop() {
             bets_sent,
         )
         time.Sleep(c.config.LoopPeriod)
-        //break // for demo send one batch
     }
     err = sendEOT(c.conn)
     c.conn.Close()
@@ -108,17 +108,17 @@ func (c *Client) StartClientLoop() {
         return
     }
     c.createClientSocket()
-	log.Infof("action: query_winners | result: in_progress | client_id: %v", c.config.ID)
+    log.Infof("action: query_winners | result: in_progress | client_id: %v", c.config.ID)
     winners, err := queryWinners(c.conn)
     c.conn.Close()
 
     if err != nil {
         log.Errorf("action: query_winners | result: fail | client_id: %v | error: %v",
             c.config.ID,
-		    err,
-		)
+            err,
+        )
 
     } else {
-	    log.Infof("action: query_winners | result: success | client_id: %v  | winners: %v", c.config.ID, winners)
+        log.Infof("action: query_winners | result: success | client_id: %v  | winners: %v", c.config.ID, winners)
     }
 }
