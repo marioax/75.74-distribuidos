@@ -127,6 +127,8 @@ El protocolo consta de un header y un payload. <br>
     | ACK  | 0x00 | confirmar recepcion de cualquier mensaje |
     | BET  | 0x01 | el payload debe interpretarse como apuestas |
     | EOT  | 0x02 | indica el fin de envio de apuestas |
+    | QWIN | 0x03 | consulta los ganadores del sorteo |
+    | RWIN | 0x04 | contiene los resultados del sorteo |
     - *LENGTH*: Indica el largo del payload a continuacion. Su longitud es de 4 bytes.
 - **PAYLOAD:** Es el cuerpo del mensaje enviado
 
@@ -143,6 +145,10 @@ El cliente realiza el envio de todas sus apuestas en una unica conexion, para ev
 Esto carece de sentido en una implementacion no concurrente y que hace uso tan intensivo del canal de comunicacion, 
 ya que se puede observar claramente que los clientes que esten en el buffer de aceptacion del server, tendran que esperar una infinidad de 
 tiempo antes de comenzar a enviar sus apuestas.
+Luego del envio de apuestas se envia un EOT, y en otra conexion se solicita el resultado del sorteo.
+Respecto a esto ultimo, se implementa lo pedido con el detalle de que los resultados son enviados todos juntos, es decir,
+para enviar los resultados hay dos requisitos: que todas las agencias hayan finalizado el envio de apuestas, 
+y que tambien hayan solicitado los resultados.
 
 
 ## Parte 3: Repaso de Concurrencia
