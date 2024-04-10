@@ -10,7 +10,7 @@ services:
       - PYTHONUNBUFFERED=1
       - LOGGING_LEVEL=DEBUG
       - SERVER_ID=0
-      - CLI_NUM=5
+      - CLI_NUM=2
     volumes:
       - ./server/config.ini:/config.ini
     networks:
@@ -40,48 +40,6 @@ services:
       - ./.data/agency-2.csv:/bets.csv
     environment:
       - CLI_ID=2
-      - CLI_LOG_LEVEL=DEBUG
-    networks:
-      - testing_net
-    depends_on:
-      - server
-  client_3:
-    container_name: client_3
-    image: client:latest
-    entrypoint: /client
-    volumes:
-      - ./client/config.yaml:/config.yaml
-      - ./.data/agency-3.csv:/bets.csv
-    environment:
-      - CLI_ID=3
-      - CLI_LOG_LEVEL=DEBUG
-    networks:
-      - testing_net
-    depends_on:
-      - server
-  client_4:
-    container_name: client_4
-    image: client:latest
-    entrypoint: /client
-    volumes:
-      - ./client/config.yaml:/config.yaml
-      - ./.data/agency-4.csv:/bets.csv
-    environment:
-      - CLI_ID=4
-      - CLI_LOG_LEVEL=DEBUG
-    networks:
-      - testing_net
-    depends_on:
-      - server
-  client_5:
-    container_name: client_5
-    image: client:latest
-    entrypoint: /client
-    volumes:
-      - ./client/config.yaml:/config.yaml
-      - ./.data/agency-5.csv:/bets.csv
-    environment:
-      - CLI_ID=5
       - CLI_LOG_LEVEL=DEBUG
     networks:
       - testing_net

@@ -200,7 +200,7 @@ func queryWinners(conn net.Conn) (string, error) {
     err := sendmsg(conn, QWIN, "")
     
     if err != nil {
-        return err
+        return "", err
     }
     mtype, win, err := recvmsg(conn)
 

@@ -52,7 +52,7 @@ func (c *Client) createClientSocket() error {
 
 // StartClientLoop Send messages to the client until some time threshold is met
 func (c *Client) StartClientLoop() {
-    defer c.sutdown <- true
+    defer close(c.shutdown) // unblock main thread
     bets_file, err := os.Open("bets.csv")
 
     if err != nil {
