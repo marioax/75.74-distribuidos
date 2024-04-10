@@ -248,7 +248,7 @@ const (
 // date <= 10 chars
 // bet number is int16 <= 5 chars
 // worst case = 73B * 100 < 8kB 
-var BATCH_SIZE = 1000
+var BATCH_SIZE = 100
 
 
 /*
